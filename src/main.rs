@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Result};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    // join,
+    join,
     net::{
         tcp::{ReadHalf, WriteHalf},
         TcpListener, TcpStream,
     },
-    time::{sleep, Duration},
+    // time::{sleep, Duration},
 };
 
 use log::{error, info};
@@ -15,7 +15,7 @@ use log::{error, info};
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let listener = TcpListener::bind("127.0.0.1:10800").await?;
+    let listener = TcpListener::bind("127.0.0.1:108").await?;
     let mut id = 0;
     loop {
         let (client, _) = listener.accept().await?;
@@ -88,35 +88,35 @@ async fn handle_connection(mut client: TcpStream, id: usize) -> Result<()> {
     //(nbytes_client, client_reader, server_writer, client_buf),
     // (nbytes_server, server_reader, client_writer, server_buf),
     loop {
-        // let (a, b) = join!(
-        //     client_to_server(client_reader, server_writer, nbytes_client, client_buf, id),
-        //     server_to_client(server_reader, client_writer, nbytes_server, server_buf, id)
-        // );
-
-        // (nbytes_client, client_reader, server_writer, client_buf) = match a {
-        //     Ok(s) => s,
-        //     Err(e) => return Err(anyhow!("error while client to server:\n{}", e)),
-        // };
-
-        // (nbytes_server, server_reader, client_writer, server_buf) = match b {
-        //     Ok(s) => s,
-        //     Err(e) => return Err(anyhow!("error while server to client:\n{}", e)),
-        // };
-
-        (nbytes_client, client_reader, server_writer, client_buf) =
-            client_to_server(client_reader, server_writer, nbytes_client, client_buf, id)
-                .await
-                .unwrap();
-        (nbytes_server, server_reader, client_writer, server_buf) =
+        let (a, b) = join!(
+            client_to_server(client_reader, server_writer, nbytes_client, client_buf, id),
             server_to_client(server_reader, client_writer, nbytes_server, server_buf, id)
-                .await
-                .unwrap();
+        );
+
+        (nbytes_client, client_reader, server_writer, client_buf) = match a {
+            Ok(s) => s,
+            Err(e) => return Err(anyhow!("error while client to server:\n{}", e)),
+        };
+
+        (nbytes_server, server_reader, client_writer, server_buf) = match b {
+            Ok(s) => s,
+            Err(e) => return Err(anyhow!("error while server to client:\n{}", e)),
+        };
+
+        // (nbytes_client, client_reader, server_writer, client_buf) =
+        //     client_to_server(client_reader, server_writer, nbytes_client, client_buf, id)
+        //         .await
+        //         .unwrap();
+        // (nbytes_server, server_reader, client_writer, server_buf) =
+        //     server_to_client(server_reader, client_writer, nbytes_server, server_buf, id)
+        //         .await
+        //         .unwrap();
 
         if nbytes_client == 5000 || nbytes_server == 5000 {
             info!("Thread {id} finish!");
             break;
         }
-        sleep(Duration::from_millis(1)).await;
+        // sleep(Duration::from_millis(1)).await;
     }
 
     Ok(())
@@ -141,7 +141,7 @@ async fn client_to_server<'a>(
     }
     info!("{}: received {} data from client:", id, nbytes_client);
 
-    if nbytes_client > 0 {
+    if nbytes_client > 0 && nbytes_client <=4096 {
         match server.write(&mut client_buf[..nbytes_client]).await {
             Ok(0) => {
                 info!("{id}: write to sever 0 bytes");
@@ -169,7 +169,7 @@ async fn server_to_client<'a>(
     if nbytes_server == 0 {
         nbytes_server = match server.read(&mut server_buf).await {
             Ok(0) => {
-                info!("{}: no data from client", id);
+                info!("{}: no data from server", id);
                 return Ok((5000, server, client, server_buf));
             }
             Ok(n) => n,
@@ -178,7 +178,7 @@ async fn server_to_client<'a>(
     }
     info!("{}: received {} data from server:", id, nbytes_server);
 
-    if nbytes_server > 0 {
+    if nbytes_server > 0 && nbytes_server <= 4096{
         match client.write(&mut server_buf[..nbytes_server]).await {
             Ok(0) => {
                 info!("{id}: write to client 0 bytes");
