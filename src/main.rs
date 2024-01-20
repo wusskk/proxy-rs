@@ -120,7 +120,6 @@ async fn handle_connection(mut client: TcpStream, id: usize) -> Result<()> {
     }
 
     Ok(())
-}
 
 async fn client_to_server<'a>(
     mut client: ReadHalf<'a>,
