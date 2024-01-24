@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use log::{error, info};
-use proxy::message::Message;
+use proxy::message::{Message, ARR_LEN, MSG_LEN};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 }
 
 async fn handle_connection(mut client: TcpStream) -> Result<()> {
-    let mut buf = [0; 512];
+    let mut buf = [0; MSG_LEN];
 
     let _n = match client.read(&mut buf).await {
         Ok(0) => return Err(anyhow!("no data in the first request form client!")),
@@ -76,8 +76,8 @@ async fn handle_connection(mut client: TcpStream) -> Result<()> {
     let mut nbytes_client: usize = 0;
     let mut nbytes_server: usize = 0;
 
-    let mut client_buf: [u8; 512] = [0; 512];
-    let mut server_buf: [u8; 512] = [0; 512];
+    let mut client_buf: [u8; MSG_LEN] = [0; MSG_LEN];
+    let mut server_buf: [u8; MSG_LEN] = [0; MSG_LEN];
 
     loop {
         if nbytes_client == 0 {
@@ -104,7 +104,7 @@ async fn handle_connection(mut client: TcpStream) -> Result<()> {
         }
 
         if nbytes_server == 0 {
-            nbytes_server = match server.try_read(&mut server_buf) {
+            nbytes_server = match server.try_read(&mut server_buf[0..ARR_LEN]) {
                 Ok(0) => {
                     info!("{}: no data from client", id);
                     return Ok(());
@@ -117,11 +117,11 @@ async fn handle_connection(mut client: TcpStream) -> Result<()> {
 
         if nbytes_server > 0 {
             info!("{}: received {} bytes data from server", id, nbytes_server);
-            Message::from_body_to_vec(id, &mut server_buf[..512], nbytes_server)?;
+            Message::from_body_to_vec(id, &mut server_buf[..MSG_LEN], nbytes_server)?;
 
-            match client.write(&server_buf[..512]).await {
+            match client.write(&server_buf[..MSG_LEN]).await {
                 Ok(0) => return Ok(()),
-                Ok(n) if n == 512 => nbytes_server = 0,
+                Ok(n) if n == MSG_LEN => nbytes_server = 0,
                 Ok(_) => return Ok(()),
                 Err(e) => return Err(anyhow!("{}: error while write to client:\n{}", id, e)),
             }

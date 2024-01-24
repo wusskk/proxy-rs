@@ -22,8 +22,6 @@ lazy_static! {
     static ref TX_CHILD: Mutex<HashMap<usize, Sender<Message>>> = Mutex::new(HashMap::new());
 }
 
-
-
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
